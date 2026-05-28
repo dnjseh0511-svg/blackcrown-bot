@@ -1,5 +1,13 @@
-from telegram.ext import Updater, MessageHandler, Filters, ChatMemberHandler
+import logging
 from collections import defaultdict
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    MessageHandler,
+    ChatMemberHandler,
+    ContextTypes,
+    filters,
+)
 
 TOKEN = "8835471195:AAGG_9uNfZosE1Ah9_ZmcZuRySE_QdCCXxQ"
 
@@ -15,20 +23,22 @@ WELCOME_TEXT = """
 즐거운 활동 되시길 바랍니다 👑
 """
 
+logging.basicConfig(level=logging.INFO)
+
 messages = defaultdict(list)
 
-def welcome(update, context):
+async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.chat_member.new_chat_member.user
 
-        context.bot.send_message(
+        await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=WELCOME_TEXT.format(name=user.first_name)
         )
     except:
         pass
 
-def spam_check(update, context):
+async def spam_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         text = update.message.text
         user_id = update.message.from_user.id
@@ -36,23 +46,31 @@ def spam_check(update, context):
         messages[user_id].append(text)
 
         if messages[user_id].count(text) >= 3:
-            update.message.delete()
+            await update.message.delete()
 
-            context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text="⚠️ 동일한 글 반복으로 삭제되었습니다."
             )
     except:
         pass
 
-updater = Updater(TOKEN, use_context=True)
+app = ApplicationBuilder().token(TOKEN).build()
 
-dp = updater.dispatcher
+app.add_handler(
+    ChatMemberHandler(
+        welcome,
+        ChatMemberHandler.CHAT_MEMBER
+    )
+)
 
-dp.add_handler(ChatMemberHandler(welcome, ChatMemberHandler.CHAT_MEMBER))
-dp.add_handler(MessageHandler(Filters.text, spam_check))
+app.add_handler(
+    MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        spam_check
+    )
+)
 
 print("봇 실행중...")
 
-updater.start_polling()
-updater.idle()
+app.run_polling()
